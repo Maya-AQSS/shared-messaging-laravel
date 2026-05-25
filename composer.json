@@ -1,0 +1,55 @@
+{
+    "name": "maya/shared-messaging-laravel",
+    "description": "Shared RabbitMQ messaging layer for MAyA Laravel microservices: log publisher, notification publisher, alert publisher, and Monolog rabbit handler.",
+    "type": "library",
+    "license": "MIT",
+    "homepage": "https://github.com/Maya-AQSS/shared-messaging-laravel",
+    "support": {
+        "issues": "https://github.com/Maya-AQSS/shared-messaging-laravel/issues",
+        "source": "https://github.com/Maya-AQSS/shared-messaging-laravel"
+    },
+    "version": "0.1.0",
+    "require": {
+        "php": "^8.4",
+        "illuminate/support": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/log": "^11.0 || ^12.0 || ^13.0",
+        "illuminate/queue": "^11.0 || ^12.0 || ^13.0",
+        "monolog/monolog": "^3.0",
+        "php-amqplib/php-amqplib": "^3.5",
+        "ramsey/uuid": "^4.7"
+    },
+    "require-dev": {
+        "pestphp/pest": "^3.0",
+        "pestphp/pest-plugin-laravel": "^3.0",
+        "orchestra/testbench": "^9.0 || ^10.0",
+        "mockery/mockery": "^1.6"
+    },
+    "autoload": {
+        "psr-4": {
+            "Maya\\Messaging\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "pest --colors=always",
+        "test-coverage": "pest --coverage --min=80"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Maya\\Messaging\\Providers\\MessagingServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
