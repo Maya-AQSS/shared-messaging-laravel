@@ -1,14 +1,13 @@
 {
-    "name": "maya/shared-messaging-laravel",
-    "description": "Shared RabbitMQ messaging layer for MAyA Laravel microservices: log publisher, notification publisher, alert publisher, and Monolog rabbit handler.",
+    "name": "ceedcv-maya/shared-messaging-laravel",
+    "description": "RabbitMQ messaging layer for Laravel: typed event publishers (audit, logs, notifications, alerts), reusable consumer base, retry/DLX handling.",
     "type": "library",
     "license": "MIT",
     "homepage": "https://github.com/Maya-AQSS/shared-messaging-laravel",
     "support": {
-        "issues": "https://github.com/Maya-AQSS/shared-messaging-laravel/issues",
+        "issues": "https://github.com/Maya-AQSS/maya_platform/issues",
         "source": "https://github.com/Maya-AQSS/shared-messaging-laravel"
     },
-    "version": "0.1.0",
     "require": {
         "php": "^8.4",
         "illuminate/support": "^11.0 || ^12.0 || ^13.0",
@@ -51,5 +50,22 @@
         }
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "keywords": [
+        "laravel",
+        "rabbitmq",
+        "amqp",
+        "messaging",
+        "events",
+        "queue",
+        "ceedcv",
+        "maya"
+    ],
+    "authors": [
+        {
+            "name": "CEEDCV",
+            "email": "info@ceedcv.es",
+            "homepage": "https://ceedcv.es"
+        }
+    ]
 }
