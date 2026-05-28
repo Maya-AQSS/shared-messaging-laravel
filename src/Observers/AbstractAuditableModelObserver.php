@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Maya\Messaging\Observers\Concerns\NormalizesAuditTemporalPayload;
 use Maya\Messaging\Publishers\AuditPublisher;
+use Maya\Messaging\Support\AuditRedactor;
 
 /**
  * Plantilla CRUD → maya.audit para modelos del panel admin.
@@ -64,6 +65,17 @@ abstract class AbstractAuditableModelObserver
      * @return list<string>
      */
     abstract protected function auditTemporalKeys(): array;
+
+    /**
+     * Field names whose values must be redacted before publishing.
+     * Override in concrete observers to protect sensitive attributes.
+     *
+     * @return list<string>
+     */
+    protected function auditSensitiveKeys(): array
+    {
+        return [];
+    }
 
     abstract protected function resolveAuditUserId(Model $model): string;
 
@@ -195,14 +207,22 @@ abstract class AbstractAuditableModelObserver
             return;
         }
 
+        $sensitiveKeys = $this->auditSensitiveKeys();
+
         $this->publisher->publish(
             applicationSlug: $this->messagingAppSlug(),
             entityType: $this->auditEntityType(),
             entityId: $this->auditEntityId($model),
             action: $action,
             userId: $actorUserId ?? $this->resolveAuditUserId($model),
-            previousValue: $this->normalizeAuditTemporalPayload($previousValue, $this->auditTemporalKeys()),
-            newValue: $this->normalizeAuditTemporalPayload($newValue, $this->auditTemporalKeys()),
+            previousValue: $this->normalizeAuditTemporalPayload(
+                AuditRedactor::redact($previousValue, $sensitiveKeys),
+                $this->auditTemporalKeys()
+            ),
+            newValue: $this->normalizeAuditTemporalPayload(
+                AuditRedactor::redact($newValue, $sensitiveKeys),
+                $this->auditTemporalKeys()
+            ),
         );
     }
 }
