@@ -21,6 +21,7 @@ class AlertPublisher
     public function __construct(
         private readonly MessagePublisher $publisher,
         private readonly string $exchange,
+        private readonly NotificationPublisher $notificationPublisher,
     ) {}
 
     public function publish(
@@ -74,6 +75,35 @@ class AlertPublisher
                     'error'       => $dbError->getMessage(),
                 ]);
             }
+        }
+
+        // Also publish via NotificationPublisher for unified dashboard/app consumption
+        // Dashboard-scoped alerts have no specific recipient — all dashboards receive them
+        $isCritical = in_array($severity, ['critical', 'high'], true);
+        try {
+            $this->notificationPublisher->send(
+                type: "alert.{$ruleSlug}",
+                recipientId: null,
+                title: $title,
+                body: "Severidad: {$severity}. Origen: {$source}.",
+                channels: ['app'],
+                metadata: [
+                    'severity' => $severity,
+                    'source' => $source,
+                    'rule_slug' => $ruleSlug,
+                    'context' => $context,
+                ],
+                app: null, // use default
+                createdAt: $createdAt,
+                isCritical: $isCritical,
+                scope: 'dashboard',
+            );
+        } catch (Throwable $e) {
+            Log::warning('alert.notification_publish_failed', [
+                'rule_slug' => $ruleSlug,
+                'severity' => $severity,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

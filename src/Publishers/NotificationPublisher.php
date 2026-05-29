@@ -36,16 +36,28 @@ class NotificationPublisher
      */
     public function send(
         string $type,
-        string $recipientId,
-        string $title,
-        string $body,
+        ?string $recipientId = null,
+        string $title = '',
+        string $body = '',
         array $channels = ['app'],
         array $metadata = [],
         ?string $app = null,
         ?string $createdAt = null,
+        bool $isCritical = false,
+        string $scope = 'user',
     ): void {
         $app = $app ?? $this->defaultApp;
         $channels = array_values(array_unique($channels));
+
+        // Validate scope
+        if (!in_array($scope, ['user', 'dashboard', 'both'], true)) {
+            throw new InvalidArgumentException("Invalid notification scope: {$scope}");
+        }
+
+        // Validate recipientId requirement
+        if (($scope === 'user' || $scope === 'both') && $recipientId === null) {
+            throw new InvalidArgumentException("recipientId is required when scope is 'user' or 'both'");
+        }
 
         if ($channels === []) {
             throw new InvalidArgumentException('At least one notification channel is required.');
@@ -61,21 +73,27 @@ class NotificationPublisher
         $payload = [
             'app'                   => $app,
             'type'                  => $type,
-            'recipient_keycloak_id' => $recipientId,
+            'recipient_keycloak_id' => $recipientId ?? '',
             'title'                 => $title,
             'body'         => $body,
             'channels'     => $channels,
             'metadata'     => (object) $metadata,
             'created_at'   => $createdAt ?? now()->toIso8601ZuluString(),
+            'is_critical'  => $isCritical,
+            'scope'        => $scope,
         ];
 
         $sharedMessageId = Uuid::uuid4()->toString();
 
         foreach ($channels as $channel) {
+            $routingKey = $isCritical
+                ? "{$app}.{$type}.{$channel}.critical"
+                : "{$app}.{$type}.{$channel}";
+
             try {
                 $this->publisher->publish(
                     exchange: $this->exchange,
-                    routingKey: "{$app}.{$type}.{$channel}",
+                    routingKey: $routingKey,
                     payload: $payload,
                     properties: ['message_id' => $sharedMessageId],
                 );
@@ -91,14 +109,14 @@ class NotificationPublisher
                 try {
                     RetryAmqpPublishJob::dispatch(
                         exchange: $this->exchange,
-                        routingKey: "{$app}.{$type}.{$channel}",
+                        routingKey: $routingKey,
                         payload: $payload,
                         properties: ['message_id' => $sharedMessageId],
                     );
                 } catch (Throwable $dbError) {
                     Log::error('amqp.queue_fallback_failed', [
                         'exchange'    => $this->exchange,
-                        'routing_key' => "{$app}.{$type}.{$channel}",
+                        'routing_key' => $routingKey,
                         'error'       => $dbError->getMessage(),
                     ]);
                 }

@@ -57,6 +57,7 @@ class MessagingServiceProvider extends ServiceProvider
             return new AlertPublisher(
                 publisher: $app->make(MessagePublisher::class),
                 exchange: config('messaging.exchanges.alerts'),
+                notificationPublisher: $app->make(NotificationPublisher::class),
             );
         });
 
