@@ -24,6 +24,9 @@ class AlertPublisher
         private readonly NotificationPublisher $notificationPublisher,
     ) {}
 
+    /**
+     * @param  list<string>  $recipientIds  Destinatarios Keycloak cuando notifyAll=false
+     */
     public function publish(
         string $ruleSlug,
         string $severity,
@@ -31,6 +34,8 @@ class AlertPublisher
         array $context = [],
         string $source = 'app.publish',
         ?string $createdAt = null,
+        bool $notifyAll = true,
+        array $recipientIds = [],
     ): void {
         if (!in_array($severity, self::VALID_SEVERITIES, true)) {
             throw new InvalidArgumentException("Invalid alert severity: {$severity}");
@@ -77,27 +82,45 @@ class AlertPublisher
             }
         }
 
-        // Also publish via NotificationPublisher for unified dashboard/app consumption
-        // Dashboard-scoped alerts have no specific recipient — all dashboards receive them
         $isCritical = in_array($severity, ['critical', 'high'], true);
+        $notificationMetadata = [
+            'severity' => $severity,
+            'source' => $source,
+            'rule_slug' => $ruleSlug,
+            'context' => $context,
+        ];
+
         try {
-            $this->notificationPublisher->send(
-                type: "alert.{$ruleSlug}",
-                recipientId: null,
-                title: $title,
-                body: "Severidad: {$severity}. Origen: {$source}.",
-                channels: ['app'],
-                metadata: [
-                    'severity' => $severity,
-                    'source' => $source,
-                    'rule_slug' => $ruleSlug,
-                    'context' => $context,
-                ],
-                app: null, // use default
-                createdAt: $createdAt,
-                isCritical: $isCritical,
-                scope: 'dashboard',
-            );
+            if ($notifyAll) {
+                // Alerta global: scope dashboard (sin destinatario concreto).
+                $this->notificationPublisher->send(
+                    type: "alert.{$ruleSlug}",
+                    recipientId: null,
+                    title: $title,
+                    body: "Severidad: {$severity}. Origen: {$source}.",
+                    channels: ['app'],
+                    metadata: $notificationMetadata,
+                    app: null,
+                    createdAt: $createdAt,
+                    isCritical: $isCritical,
+                    scope: 'dashboard',
+                );
+            } else {
+                foreach ($recipientIds as $recipientId) {
+                    $this->notificationPublisher->send(
+                        type: "alert.{$ruleSlug}",
+                        recipientId: $recipientId,
+                        title: $title,
+                        body: "Severidad: {$severity}. Origen: {$source}.",
+                        channels: ['app'],
+                        metadata: $notificationMetadata,
+                        app: null,
+                        createdAt: $createdAt,
+                        isCritical: $isCritical,
+                        scope: 'user',
+                    );
+                }
+            }
         } catch (Throwable $e) {
             Log::warning('alert.notification_publish_failed', [
                 'rule_slug' => $ruleSlug,
