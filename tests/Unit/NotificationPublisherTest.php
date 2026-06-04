@@ -93,3 +93,63 @@ it('dispatches RetryAmqpPublishJob when publish throws', function () {
 
     Queue::assertPushed(RetryAmqpPublishJob::class);
 });
+
+// ─── Severity, URL and i18n keys ─────────────────────────────────────────
+
+function captureNotificationPayload(callable $send): array
+{
+    $captured = null;
+    $publisher = m::mock(MessagePublisher::class);
+    $publisher->shouldReceive('publish')->andReturnUsing(function ($exchange, $key, $payload) use (&$captured) {
+        $captured = ['payload' => $payload, 'routing_key' => $key];
+    });
+    $send(makeNotificationPublisher($publisher));
+
+    return $captured;
+}
+
+it('carries severity, url and i18n keys in the payload', function () {
+    $captured = captureNotificationPayload(fn ($np) => $np->send(
+        type: 'document.published',
+        recipientId: 'uuid-1',
+        titleKey: 'notifications.document.published.title',
+        bodyKey: 'notifications.document.published.body',
+        params: ['document_id' => 42],
+        severity: 'high',
+        url: '/documents/42',
+    ));
+
+    $p = $captured['payload'];
+    expect($p['severity'])->toBe('high');
+    expect($p['url'])->toBe('/documents/42');
+    expect($p['title_key'])->toBe('notifications.document.published.title');
+    expect($p['body_key'])->toBe('notifications.document.published.body');
+    expect((array) $p['params'])->toBe(['document_id' => 42]);
+});
+
+it('derives is_critical from severity and routes critical channels', function () {
+    $captured = captureNotificationPayload(fn ($np) => $np->send(
+        type: 'document.rejected',
+        recipientId: 'uuid-2',
+        severity: 'critical',
+    ));
+
+    expect($captured['payload']['is_critical'])->toBeTrue();
+    expect($captured['routing_key'])->toEndWith('.critical');
+});
+
+it('defaults severity to info and keeps legacy is_critical boolean working', function () {
+    $captured = captureNotificationPayload(fn ($np) => $np->send('info', 'uuid-3', 'T', 'B'));
+    expect($captured['payload']['severity'])->toBe('info');
+    expect($captured['payload']['is_critical'])->toBeFalse();
+
+    $legacy = captureNotificationPayload(fn ($np) => $np->send('alert', 'uuid-4', 'T', 'B', ['app'], [], null, null, true));
+    expect($legacy['payload']['severity'])->toBe('high');
+    expect($legacy['payload']['is_critical'])->toBeTrue();
+});
+
+it('rejects an invalid severity', function () {
+    $np = makeNotificationPublisher();
+    expect(fn () => $np->send('info', 'uuid', 'T', 'B', ['app'], [], null, null, false, 'user', 'enorme'))
+        ->toThrow(InvalidArgumentException::class);
+});

@@ -25,6 +25,8 @@ class NotificationPublisher
 {
     private const VALID_CHANNELS = ['app', 'email', 'webhook', 'slack'];
 
+    private const VALID_SEVERITIES = ['critical', 'high', 'medium', 'low', 'info'];
+
     public function __construct(
         private readonly MessagePublisher $publisher,
         private readonly string $exchange,
@@ -32,7 +34,14 @@ class NotificationPublisher
     ) {}
 
     /**
-     * @param string[] $channels  one or more of VALID_CHANNELS
+     * @param  string[]  $channels  one or more of VALID_CHANNELS
+     * @param  array<string, mixed>  $metadata
+     * @param  array<string, mixed>  $params  interpolation params for the i18n keys
+     *
+     * Content is either free text ($title/$body — e.g. manual alerts) or i18n
+     * keys ($titleKey/$bodyKey + $params) resolved per recipient locale at the
+     * dashboard. Prefer keys for system notifications so each user reads the
+     * message in their own language.
      */
     public function send(
         string $type,
@@ -45,6 +54,11 @@ class NotificationPublisher
         ?string $createdAt = null,
         bool $isCritical = false,
         string $scope = 'user',
+        ?string $severity = null,
+        ?string $url = null,
+        ?string $titleKey = null,
+        ?string $bodyKey = null,
+        array $params = [],
     ): void {
         $app = $app ?? $this->defaultApp;
         $channels = array_values(array_unique($channels));
@@ -70,12 +84,26 @@ class NotificationPublisher
             }
         }
 
+        // Reconcile severity ⇄ is_critical. Severity is authoritative when given;
+        // otherwise derive it from the legacy boolean for forward-compatibility.
+        if ($severity !== null && !in_array($severity, self::VALID_SEVERITIES, true)) {
+            throw new InvalidArgumentException("Invalid notification severity: {$severity}");
+        }
+
+        $severity ??= $isCritical ? 'high' : 'info';
+        $isCritical = in_array($severity, ['critical', 'high'], true);
+
         $payload = [
             'app'                   => $app,
             'type'                  => $type,
             'recipient_keycloak_id' => $recipientId ?? '',
             'title'                 => $title,
             'body'         => $body,
+            'title_key'    => $titleKey,
+            'body_key'     => $bodyKey,
+            'params'       => (object) $params,
+            'severity'     => $severity,
+            'url'          => $url,
             'channels'     => $channels,
             'metadata'     => (object) $metadata,
             'created_at'   => $createdAt ?? now()->toIso8601ZuluString(),
