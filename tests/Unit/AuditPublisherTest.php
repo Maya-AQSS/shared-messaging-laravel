@@ -97,7 +97,7 @@ it('uses correct routing key: slug.entity.action', function () {
 
     makeAuditPublisher($publisher)->publish('maya-dms', 'document', 'doc-1', 'delete', 'user-1');
 
-    expect($capturedKey)->toBe('maya_dms.document.delete');
+    expect($capturedKey)->toBe('maya-dms.document.delete');
 });
 
 // ─── Fallback ────────────────────────────────────────────────────────────
