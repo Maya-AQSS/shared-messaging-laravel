@@ -69,8 +69,33 @@ class MessagingServiceProvider extends ServiceProvider
         });
     }
 
+    /**
+     * Falla en arranque si faltan las credenciales de RabbitMQ fuera de
+     * testing. Evita el antiguo fallback silencioso a 'admin'/'admin':
+     * cada servicio debe declarar su propio RABBITMQ_USER/RABBITMQ_PASSWORD
+     * (un usuario por servicio con permisos acotados, no el superusuario).
+     */
+    private function assertAmqpCredentialsConfigured(): void
+    {
+        if ($this->app->environment('testing')) {
+            return;
+        }
+
+        $user = config('messaging.connection.user');
+        $password = config('messaging.connection.password');
+
+        if (! is_string($user) || $user === '' || ! is_string($password) || $password === '') {
+            throw new \RuntimeException(
+                'RabbitMQ credentials missing: set RABBITMQ_USER and RABBITMQ_PASSWORD '
+                . '(per-service user, not the shared admin account).'
+            );
+        }
+    }
+
     public function boot(): void
     {
+        $this->assertAmqpCredentialsConfigured();
+
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
 
         $this->publishes([

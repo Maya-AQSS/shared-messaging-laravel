@@ -7,8 +7,11 @@ return [
     'connection' => [
         'host'     => env('RABBITMQ_HOST', 'maya_rabbitmq'),
         'port'     => (int) env('RABBITMQ_PORT', 5672),
-        'user'     => env('RABBITMQ_USER', 'admin'),
-        'password' => env('RABBITMQ_PASSWORD', 'admin'),
+        // Sin default inseguro: cada servicio debe declarar su propio usuario
+        // RabbitMQ (principio de mínimo privilegio). MessagingServiceProvider
+        // falla en boot si faltan fuera de testing.
+        'user'     => env('RABBITMQ_USER'),
+        'password' => env('RABBITMQ_PASSWORD'),
         'vhost'    => env('RABBITMQ_VHOST', '/'),
         'heartbeat'        => (int) env('RABBITMQ_HEARTBEAT', 60),
         'connection_timeout' => (float) env('RABBITMQ_CONNECTION_TIMEOUT', 3.0),
